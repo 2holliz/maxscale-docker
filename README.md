@@ -91,6 +91,11 @@ TotalWages where State='PA':
 (45000,)
 (52000,)
 
-📌 Objectives Accomplished
+Objectives Accomplished
 
-✅ Set up a sharded database architecture using two MariaDB master instances✅ Configured MaxScale to connect and route queries to both shards via a schemarouter service✅ Developed a Python script to perform database queries through MaxScale✅ Packaged the entire system using Docker Compose✅ Documented the project clearly in this README
+- Set up a sharded database architecture using two MariaDB master instances 
+- Configured MaxScale to connect and route queries to both shards via a schemarouter service
+- Developed a Python script to perform database queries through MaxScale
+- Packaged the entire system using Docker Compose
+- Documented the project clearly in this README
+
