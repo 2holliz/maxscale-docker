@@ -1,90 +1,69 @@
-# MariaDB MaxScale Docker image
-
-This Docker image runs the latest 2.4 version of MariaDB MaxScale.
-
--	[Travis CI:  
-	![build status badge](https://img.shields.io/travis/mariadb-corporation/maxscale-docker/master.svg)](https://travis-ci.org/mariadb-corporation/maxscale-docker/branches)
-
-## Running
-[The MaxScale docker-compose setup](./docker-compose.yml) contains MaxScale
-configured with a three node master-slave cluster. To start it, run the
-following commands in this directory.
-
-```
-docker-compose build
+README.md
+Sharded Database with MaxScale and Docker
+Project Overview
+This project sets up a sharded MariaDB database system using Docker Compose and MariaDB MaxScale as a database proxy/router. It demonstrates basic database sharding by distributing data across two separate master databases (shards) and routing queries to them through MaxScale.
+A Python script is provided to connect to the MaxScale instance and perform queries to retrieve and display specific information from the sharded databases.
+________________________________________
+Project Structure
+├── docker-compose.yml
+├── maxscale.cnf.d/
+│   └── example.cnf
+├── sql/
+│   ├── master/
+│   │   └── init.sql (if applicable)
+│   └── master2/
+│       └── init.sql (if applicable)
+├── query_script.py
+├── README.md
+________________________________________
+Components
+docker-compose.yml
+•	Deploys two MariaDB master containers (master, master2)
+•	Deploys one MaxScale container
+•	Mounts config files and exposes ports
+MaxScale Configuration (maxscale.cnf.d/example.cnf)
+•	Defines two database servers: zip_master_one and zip_master_two
+•	Configures a schemarouter service (Sharded-Service) to route queries based on database names to the correct shard
+•	Includes a monitor to keep track of both servers’ availability
+Python Script (query_script.py)
+•	Connects to MaxScale on port 4000
+•	Runs four queries:
+1.	Largest zipcode in zipcodes_one
+2.	All zipcodes where state is KY
+3.	All zipcodes between 40000 and 41000
+4.	TotalWages where state is PA from zipcodes_two
+•	Displays query results in the console
+________________________________________
+How to Run
+1.	Clone the repo (or download project files)
+2.	Build and run the containers
+ 	docker-compose build
 docker-compose up -d
-```
+3.	Check MaxScale server status
+ 	docker-compose exec maxscale maxctrl list servers
+4.	Run the Python query script
+ 	python3 query_script.py
+________________________________________
+Expected Output
+Example console output:
+Largest zipcode in zipcodes_one:
+('99999',)
 
-After MaxScale and the servers have started (takes a few minutes), you can find
-the readwritesplit router on port 4006 and the readconnroute on port 4008. The
-user `maxuser` with the password `maxpwd` can be used to test the cluster.
-Assuming the mariadb client is installed on the host machine:
-```
-$ mysql -umaxuser -pmaxpwd -h 127.0.0.1 -P 4006 test
-Welcome to the MariaDB monitor.  Commands end with ; or \g.
-Your MySQL connection id is 5
-Server version: 10.2.12 2.2.9-maxscale mariadb.org binary distribution
+All zipcodes where State='KY':
+('40003',)
+('40004',)
 
-Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+All zipcodes between 40000 and 41000:
+('40001',)
+('40002',)
 
-Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
-
-MySQL [test]>
-```
-You can edit the [`maxscale.cnf.d/example.cnf`](./maxscale.cnf.d/example.cnf)
-file and recreate the MaxScale container to change the configuration.
-
-To stop the containers, execute the following command. Optionally, use the -v
-flag to also remove the volumes.
-
-To run maxctrl in the container to see the status of the cluster:
-```
-$ docker-compose exec maxscale maxctrl list servers
-┌─────────┬─────────┬──────┬─────────────┬─────────────────┬──────────┐
-│ Server  │ Address │ Port │ Connections │ State           │ GTID     │
-├─────────┼─────────┼──────┼─────────────┼─────────────────┼──────────┤
-│ server1 │ master  │ 3306 │ 0           │ Master, Running │ 0-3000-5 │
-├─────────┼─────────┼──────┼─────────────┼─────────────────┼──────────┤
-│ server2 │ slave1  │ 3306 │ 0           │ Slave, Running  │ 0-3000-5 │
-├─────────┼─────────┼──────┼─────────────┼─────────────────┼──────────┤
-│ server3 │ slave2  │ 3306 │ 0           │ Running         │ 0-3000-5 │
-└─────────┴─────────┴──────┴─────────────┴─────────────────┴──────────┘
-
-```
-
-The cluster is configured to utilize automatic failover. To illustrate this you can stop the master
-container and watch for maxscale to failover to one of the original slaves and then show it rejoining
-after recovery:
-```
-$ docker-compose stop master
-Stopping maxscaledocker_master_1 ... done
-$ docker-compose exec maxscale maxctrl list servers
-┌─────────┬─────────┬──────┬─────────────┬─────────────────┬─────────────┐
-│ Server  │ Address │ Port │ Connections │ State           │ GTID        │
-├─────────┼─────────┼──────┼─────────────┼─────────────────┼─────────────┤
-│ server1 │ master  │ 3306 │ 0           │ Down            │ 0-3000-5    │
-├─────────┼─────────┼──────┼─────────────┼─────────────────┼─────────────┤
-│ server2 │ slave1  │ 3306 │ 0           │ Master, Running │ 0-3001-7127 │
-├─────────┼─────────┼──────┼─────────────┼─────────────────┼─────────────┤
-│ server3 │ slave2  │ 3306 │ 0           │ Slave, Running  │ 0-3001-7127 │
-└─────────┴─────────┴──────┴─────────────┴─────────────────┴─────────────┘
-$ docker-compose start master
-Starting master ... done
-$ docker-compose exec maxscale maxctrl list servers
-┌─────────┬─────────┬──────┬─────────────┬─────────────────┬─────────────┐
-│ Server  │ Address │ Port │ Connections │ State           │ GTID        │
-├─────────┼─────────┼──────┼─────────────┼─────────────────┼─────────────┤
-│ server1 │ master  │ 3306 │ 0           │ Slave, Running  │ 0-3001-7127 │
-├─────────┼─────────┼──────┼─────────────┼─────────────────┼─────────────┤
-│ server2 │ slave1  │ 3306 │ 0           │ Master, Running │ 0-3001-7127 │
-├─────────┼─────────┼──────┼─────────────┼─────────────────┼─────────────┤
-│ server3 │ slave2  │ 3306 │ 0           │ Slave, Running  │ 0-3001-7127 │
-└─────────┴─────────┴──────┴─────────────┴─────────────────┴─────────────┘
-
-```
-
-Once complete, to remove the cluster and maxscale containers:
-
-```
-docker-compose down -v
-```
+TotalWages where State='PA':
+(45000,)
+(52000,)
+________________________________________
+Objectives Accomplished
+Set up a sharded database architecture using two MariaDB master instances
+Configured MaxScale to connect and route queries to both shards via a schemarouter service
+Developed a Python script to perform database queries through MaxScale
+Packaged the entire system using Docker Compose
+Documented the project clearly in this README
